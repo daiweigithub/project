@@ -1,9 +1,8 @@
-#from django.shortcuts import render
 #from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.models import User, Group
-from asm.models import Record
-from rest_framework import viewsets
-from asm.serializers import UserSerializer, GroupSerializer, RecordSerializer
+from asm.models import Record, UserRecord
+from rest_framework import viewsets, views
+from asm.serializers import UserSerializer, RecordSerializer, UserRecordSerializer
 from rest_framework import permissions
 from asm.permissions import IsOwner
 from rest_framework.parsers import FileUploadParser
@@ -21,30 +20,33 @@ class UserViewSet(viewsets.ModelViewSet):
         else:
             return User.objects.filter(id = self.request.user.id)
 
-class GroupViewSet(viewsets.ModelViewSet):
-    """
-    API endpoint that allows groups to be viewed or edited.
-    """
-    queryset = Group.objects.all()
-    serializer_class = GroupSerializer
-    #permission_classes = (permissions.IsAdminUser,)
-
 class RecordViewSet(viewsets.ModelViewSet):
     """
     API endpoint that allows Record to be viewed or edited.
     """
     queryset = Record.objects.all()
     serializer_class = RecordSerializer
-    #permission_classes = (IsOwner,)
 
     def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
+        record = serializer.save()
+	userRecord = UserRecord(owner=self.request.user, record=record)
+	userRecord.save()
 
     def get_queryset(self):
         if self.request.user.is_superuser:
             return Record.objects.all()
         else:
-            return Record.objects.filter(owner = self.request.user)
+            return Record.objects.filter(userrecords__owner = self.request.user)
+
+    def pre_save(self, obj):
+        obj.path = self.request.FILES.get('file')
+
+class UserRecordViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint that allows UserRecord to be viewed or edited.
+    """
+    queryset = UserRecord.objects.all()
+    serializer_class = UserRecordSerializer
 
 """
 class FileUploadView(views.APIView):
